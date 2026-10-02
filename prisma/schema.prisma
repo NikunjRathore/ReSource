@@ -1,0 +1,99 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+enum Role {
+  DONOR
+  NGO_RECIPIENT
+  ADMIN
+}
+
+enum ItemCategory {
+  FOOD
+  MEDICINE
+}
+
+enum ListingStatus {
+  AVAILABLE
+  CLAIMED
+  IN_TRANSIT
+  COMPLETED
+  EXPIRED
+}
+
+model User {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  passwordHash String
+  name         String
+  role         Role
+  orgId        String?
+  organization Organization?  @relation(fields: [orgId], references: [id])
+  listings     Listing[]      @relation("DonorListings")
+  claims       Claim[]        @relation("NgoClaims")
+  sessions     Session[]
+  createdAt    DateTime       @default(now())
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Organization {
+  id           String    @id @default(uuid())
+  name         String
+  address      String
+  isVerified   Boolean   @default(false) // Ensures medical/food compliance
+  licenseDoc   String?   // Mandatory verification reference
+  users        User[]
+  createdAt    DateTime  @default(now())
+}
+
+model Listing {
+  id           String        @id @default(uuid())
+  title        String        // e.g., "Amoxicillin 500mg Strips" or "Fresh Rice for 50"
+  category     ItemCategory
+  quantity     Int
+  unit         String        // e.g., "strips", "kg", "portions"
+  expiryDate   DateTime      // Critical for safety & compliance
+  batchNumber  String?       // Specific to medicines
+  status       ListingStatus @default(AVAILABLE)
+
+  donorId      String
+  donor        User          @relation("DonorListings", fields: [donorId], references: [id])
+
+  claim        Claim?
+  createdAt    DateTime      @default(now())
+}
+
+model Claim {
+  id           String        @id @default(uuid())
+  listingId    String        @unique
+  listing      Listing       @relation(fields: [listingId], references: [id])
+
+  ngoId        String
+  ngo          User          @relation("NgoClaims", fields: [ngoId], references: [id])
+
+  claimedAt    DateTime      @default(now())
+  completedAt  DateTime?
+  handoffCode  String        // 4-digit secure code verified during physical pickup
+}

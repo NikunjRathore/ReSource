@@ -14,14 +14,17 @@ datasource db {
 
 
 enum Role {
-  DONOR
+  DONOR_INDIVIDUAL
   NGO_RECIPIENT
   ADMIN
 }
 
 enum ItemCategory {
   FOOD
-  MEDICINE
+  TOY
+  CLOTH
+  BOOK
+  FURNITURE
 }
 
 enum ListingStatus {
@@ -38,9 +41,7 @@ model User {
   passwordHash String
   name         String
   role         Role
-  orgId        String?
-  organization Organization?  @relation(fields: [orgId], references: [id])
-  listings     Listing[]      @relation("DonorListings")
+  items     Item[]      @relation("DonorListings")
   claims       Claim[]        @relation("NgoClaims")
   sessions     Session[]
   createdAt    DateTime       @default(now())
@@ -54,41 +55,50 @@ model Session {
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  @@index([userId])
-  @@index([expiresAt])
+  @@index([userId])//for fastening of a particular user's sessions
+  @@index([expiresAt])// for fastly finding the the session need to be deleted
 }
 
-model Organization {
-  id           String    @id @default(uuid())
-  name         String
-  address      String
-  isVerified   Boolean   @default(false) // Ensures medical/food compliance
-  licenseDoc   String?   // Mandatory verification reference
-  users        User[]
-  createdAt    DateTime  @default(now())
+
+model Tag {
+  id    String    @id @default(uuid())
+  name  String    @unique
+  items ItemTag[]
 }
 
-model Listing {
+model ItemTag {
+  itemId String
+  tagId  String
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, tagId])
+}
+
+model Item {
   id           String        @id @default(uuid())
-  title        String        // e.g., "Amoxicillin 500mg Strips" or "Fresh Rice for 50"
+  title        String
+  description  String?
+  imageUrl     String?
   category     ItemCategory
   quantity     Int
-  unit         String        // e.g., "strips", "kg", "portions"
-  expiryDate   DateTime      // Critical for safety & compliance
-  batchNumber  String?       // Specific to medicines
+  unit         String
+  expiryDate   DateTime?
   status       ListingStatus @default(AVAILABLE)
 
   donorId      String
   donor        User          @relation("DonorListings", fields: [donorId], references: [id])
 
+  tags         ItemTag[]
   claim        Claim?
   createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 model Claim {
   id           String        @id @default(uuid())
-  listingId    String        @unique
-  listing      Listing       @relation(fields: [listingId], references: [id])
+  itemId    String        @unique
+  item      Item       @relation(fields: [itemId], references: [id])
 
   ngoId        String
   ngo          User          @relation("NgoClaims", fields: [ngoId], references: [id])

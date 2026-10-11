@@ -68,7 +68,7 @@ export async function updateClaimStatus(
 
   const allowed: Record<ListingStatus, ListingStatus[]> = {
     [ListingStatus.AVAILABLE]: [],
-    [ListingStatus.CLAIMED]: [ListingStatus.IN_TRANSIT],
+    [ListingStatus.CLAIMED]: [],
     [ListingStatus.IN_TRANSIT]: [ListingStatus.COMPLETED],
     [ListingStatus.COMPLETED]: [],
     [ListingStatus.EXPIRED]: [],
@@ -79,22 +79,33 @@ export async function updateClaimStatus(
   }
 
   try {
-    await db.$transaction(async (tx) => {
-      await tx.item.update({
-        where: { id: itemId },
+    const updated = await db.$transaction(async (tx) => {
+      const itemUpdate = await tx.item.updateMany({
+        where: {
+          id: itemId,
+          status: claim.item.status,
+        },
         data: { status },
       })
 
-      if (status === ListingStatus.COMPLETED) {
-        await tx.claim.update({
-          where: { id: claim.id },
-          data: { completedAt: new Date() },
-        })
+      if (itemUpdate.count !== 1) {
+        return false
       }
+
+      await tx.claim.update({
+        where: { id: claim.id },
+        data: { completedAt: new Date() },
+      })
+      return true
     })
+
+    if (!updated) {
+      return { message: "This item has already changed status. Refresh and try again.", success: false }
+    }
 
     revalidatePath("/donor")
     revalidatePath("/ngo")
+    revalidatePath("/ngo/tracking")
     return { message: `Status updated to ${status.replaceAll("_", " ").toLowerCase()}.`, success: true }
   } catch {
     return { message: "Unable to update status.", success: false }

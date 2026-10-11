@@ -105,7 +105,6 @@ export async function updateItemStatus(
 
   const item = await db.item.findUnique({
     where: { id: itemId },
-    include: { claim: true },
   })
 
   if (!item || item.donorId !== user.id) {
@@ -115,7 +114,7 @@ export async function updateItemStatus(
   const allowed: Record<ListingStatus, ListingStatus[]> = {
     [ListingStatus.AVAILABLE]: [ListingStatus.EXPIRED],
     [ListingStatus.CLAIMED]: [ListingStatus.IN_TRANSIT, ListingStatus.EXPIRED],
-    [ListingStatus.IN_TRANSIT]: [ListingStatus.COMPLETED],
+    [ListingStatus.IN_TRANSIT]: [],
     [ListingStatus.COMPLETED]: [],
     [ListingStatus.EXPIRED]: [],
   }
@@ -125,22 +124,22 @@ export async function updateItemStatus(
   }
 
   try {
-    await db.$transaction(async (tx) => {
-      await tx.item.update({
-        where: { id: itemId },
-        data: { status },
-      })
-
-      if (status === ListingStatus.COMPLETED && item.claim) {
-        await tx.claim.update({
-          where: { id: item.claim.id },
-          data: { completedAt: new Date() },
-        })
-      }
+    const result = await db.item.updateMany({
+      where: {
+        id: itemId,
+        donorId: user.id,
+        status: item.status,
+      },
+      data: { status },
     })
+
+    if (result.count !== 1) {
+      return { message: "This item has already changed status. Refresh and try again.", success: false }
+    }
 
     revalidatePath("/donor")
     revalidatePath("/ngo")
+    revalidatePath("/ngo/tracking")
     return { message: `Status updated to ${status.replaceAll("_", " ").toLowerCase()}.`, success: true }
   } catch {
     return { message: "Unable to update status.", success: false }

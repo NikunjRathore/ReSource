@@ -60,21 +60,6 @@ model Session {
 }
 
 
-model Tag {
-  id    String    @id @default(uuid())
-  name  String    @unique
-  items ItemTag[]
-}
-
-model ItemTag {
-  itemId String
-  tagId  String
-  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@id([itemId, tagId])
-}
-
 model Item {
   id           String        @id @default(uuid())
   title        String
@@ -89,10 +74,11 @@ model Item {
   donorId      String
   donor        User          @relation("DonorListings", fields: [donorId], references: [id])
 
-  tags         ItemTag[]
+  tags         String[]      @default([])
   claim        Claim?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  @@index([donorId, status])
 }
 
 model Claim {

@@ -16,19 +16,6 @@ function getString(formData: FormData, field: string) {
   return typeof value === "string" ? value.trim() : ""
 }
 
-async function upsertTags(tagNames: string[]) {
-  const tags = await Promise.all(
-    tagNames.map((name) =>
-      db.tag.upsert({
-        where: { name },
-        create: { name },
-        update: {},
-      })
-    )
-  )
-  return tags
-}
-
 export async function createItem(
   _previousState: ActionState,
   formData: FormData
@@ -71,8 +58,6 @@ export async function createItem(
   }
 
   try {
-    const tags = await upsertTags(tagNames)
-
     await db.item.create({
       data: {
         title,
@@ -83,9 +68,7 @@ export async function createItem(
         unit,
         expiryDate,
         donorId: user.id,
-        tags: {
-          create: tags.map((tag) => ({ tagId: tag.id })),
-        },
+        tags: tagNames,
       },
     })
 

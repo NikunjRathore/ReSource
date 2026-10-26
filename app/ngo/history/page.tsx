@@ -16,7 +16,6 @@ export default async function NgoHistoryPage() {
     include: {
       item: {
         include: {
-          tags: { include: { tag: true } },
           donor: { select: { name: true } },
         },
       },

@@ -1,12 +1,11 @@
 import { Suspense } from "react"
 import Link from "next/link"
-import { ArrowRight, HandHeart, LayoutGrid, Sparkles } from "lucide-react"
-import { Role, ListingStatus } from "@/generated/prisma/enums"
+import { ArrowRight, HandHeart, Sparkles } from "lucide-react"
+import { Role } from "@/generated/prisma/enums"
 import { requireRole } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
-import { ItemCard } from "@/components/shared/item-card"
 import { TagFilter } from "@/components/ngo/tag-filter"
-import { ClaimButton } from "@/components/ngo/claim-button"
+import { NgoItemBrowser } from "@/components/ngo/item-browser"
 
 type SearchParams = Promise<{ tags?: string; q?: string }>
 
@@ -20,34 +19,12 @@ export default async function NgoBrowsePage({
   const activeTags = params.tags?.split(",").filter(Boolean) ?? []
   const query = params.q?.trim() ?? ""
 
-  const allTags = await db.tag.findMany({
-    orderBy: { name: "asc" },
-    select: { name: true },
+  const tagRows = await db.item.findMany({
+    select: { tags: true },
   })
-
-  const items = await db.item.findMany({
-    where: {
-      status: ListingStatus.AVAILABLE,
-      ...(query
-        ? {
-            OR: [
-              { title: { contains: query, mode: "insensitive" as const } },
-              { description: { contains: query, mode: "insensitive" as const } },
-            ],
-          }
-        : {}),
-      ...(activeTags.length > 0
-        ? {
-              tags: { some: { tag: { name: { in : activeTags} } } },
-          }
-        : {}),
-    },
-    include: {
-      tags: { include: { tag: true } },
-      donor: { select: { name: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  })
+  const allTags = [
+    ...new Set(tagRows.flatMap((item) => item.tags ?? [])),
+  ].sort((a, b) => a.localeCompare(b))
 
   return (
     <div className="space-y-8">
@@ -78,47 +55,14 @@ export default async function NgoBrowsePage({
       </section>
 
       <Suspense fallback={null}>
-        <TagFilter allTags={allTags.map((t) => t.name)} />
+        <TagFilter allTags={allTags} />
       </Suspense>
 
-      <div className="flex flex-col gap-1 border-b border-[#e4e9dc] pb-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#72884c]">The giving shelf</p>
-          <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-[#17352b]">Available donations</h2>
-        </div>
-        <p className="text-sm text-[#829087]" aria-live="polite">
-          <span className="font-semibold text-[#385642]">{items.length}</span>{" "}
-          {items.length === 1 ? "item" : "items"} found
-          {activeTags.length > 0 && ` · filtered by ${activeTags.join(", ")}`}
-        </p>
-      </div>
-
-      {items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-[2rem] border border-dashed border-[#d7dfd1] bg-white px-6 py-16 text-center">
-          <span className="grid size-14 place-items-center rounded-2xl bg-[#eff4e4] text-[#72884c]">
-            <LayoutGrid size={25} aria-hidden="true" />
-          </span>
-          <h2 className="mt-4 text-xl font-semibold text-[#17352b]">
-            {query || activeTags.length > 0 ? "No donations match those filters" : "The giving shelf is quiet for now"}
-          </h2>
-          <p className="mt-2 text-sm text-[#748379]">
-            {query || activeTags.length > 0
-              ? "Try a different search or remove a filter to see more donations."
-              : "Check back soon. New donations from the community will appear here."}
-          </p>
-        </div>
-      ) : (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {items.map((item) => (
-            <ItemCard
-              key={item.id}
-              item={item}
-              compact
-              action={<ClaimButton itemId={item.id} />}
-            />
-          ))}
-        </div>
-      )}
+      <NgoItemBrowser
+        key={`${query}|${activeTags.join(",")}`}
+        query={query}
+        activeTags={activeTags}
+      />
     </div>
   )
 }

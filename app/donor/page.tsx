@@ -24,7 +24,6 @@ export default async function DonorItemsPage() {
       status: { in: ACTIVE_STATUSES },
     },
     include: {
-      tags: { include: { tag: true } },
       claim: { include: { ngo: { select: { name: true } } } },
     },
     orderBy: { createdAt: "desc" },

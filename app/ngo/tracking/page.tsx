@@ -18,7 +18,6 @@ export default async function NgoTrackingPage() {
     include: {
       item: {
         include: {
-          tags: { include: { tag: true } },
           donor: { select: { name: true } },
         },
       },

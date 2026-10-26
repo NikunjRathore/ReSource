@@ -14,7 +14,6 @@ export default async function DonorHistoryPage() {
       status: { in: PAST_STATUSES },
     },
     include: {
-      tags: { include: { tag: true } },
       claim: { include: { ngo: { select: { name: true } } } },
     },
     orderBy: { updatedAt: "desc" },

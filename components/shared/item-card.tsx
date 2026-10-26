@@ -17,7 +17,7 @@ export type ItemCardData = {
   status: ListingStatus
   expiryDate: Date | null
   createdAt: Date
-  tags: { tag: { name: string } }[]
+  tags: string[]
   donor?: { name: string }
 }
 
@@ -30,7 +30,7 @@ export function ItemCard({
   action?: React.ReactNode
   compact?: boolean
 }) {
-  const tagNames = item.tags.map((t) => t.tag.name)
+  const tagNames = item.tags ?? []
 
   return (
     <article
